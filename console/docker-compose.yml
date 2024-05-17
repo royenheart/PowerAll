@@ -1,0 +1,35 @@
+version: "3.1"
+services:
+  grafana:
+    container_name: powerall-grafana
+    image: grafana/grafana:10.2.2
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
+    volumes:
+      - powerall_grafana_storage:/var/lib/grafana
+      - ./configs/grafana:/etc/grafana
+  prometheus:
+    container_name: powerall-prometheus
+    image: prom/prometheus:v2.48.1
+    user: root
+    ports:
+      - '9090:9090'
+    restart: unless-stopped
+    volumes:
+      - powerall_prometheus_storage:/prometheus
+      - ./configs/prometheus:/etc/prometheus
+  frontend:
+    container_name: powerall-frontend
+    image: powerall-frontend
+    user: root
+    ports:
+      - '8085:8085'
+    restart: unless-stopped
+    environment:
+      - SERVER=powerall-frontend
+    volumes:
+      - ./configs/prometheus:/etc/frontend
+volumes:
+  powerall_grafana_storage: {}
+  powerall_prometheus_storage: {}

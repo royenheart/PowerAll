@@ -1,0 +1,10 @@
+dash==2.16.1
+Flask==2.2.5
+prometheus_client==0.14.1
+psutil==5.9.0
+pynvml==11.5.0
+PyYAML==6.0.1
+redfish==3.2.2
+Requests==2.31.0
+setuptools==68.2.2
+Werkzeug==3.0.3
