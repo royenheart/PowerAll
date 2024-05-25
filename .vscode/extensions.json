@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "donjayamanne.python-extension-pack",
+        "xaver.clang-format",
+        "ms-azuretools.vscode-docker",
+        "mhutchie.git-graph",
+        "redhat.vscode-yaml",
+        "ms-python.black-formatter"
+    ]
+}

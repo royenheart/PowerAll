@@ -139,6 +139,3 @@ cython_debug/
 
 # tests
 tests
-
-# vscode
-.vscode
