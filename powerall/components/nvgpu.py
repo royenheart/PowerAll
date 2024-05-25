@@ -28,10 +28,6 @@ class NVGPU:
         )
         return self
 
-    @property
-    def name(self) -> str:
-        return self._name
-
     def enabled(f):
         def wrap(*args, **kwargs):
             self = args[0]

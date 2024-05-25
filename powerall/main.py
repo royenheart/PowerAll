@@ -11,6 +11,8 @@ from components.cpu import CPU
 from components.nvgpu import NVGPU
 from components.bmc import BMC
 from prometheus_client import Info, generate_latest
+import os
+import socket
 
 # Set basic args
 add_option("-s", "--server", type=str, default="127.0.0.1", help="Specify server")
@@ -37,11 +39,27 @@ with CPU() as cpu, NVGPU() as nvgpu, BMC() as bmc:
     host, port, debug = get_arg("server"), get_arg("port"), get_arg("debug")
     setup_logger(debug)
 
-    # Set up cluster
-    cluster = get_arg("cluster")
-    in_which_cluster = Info(f"in_which_cluster", "Indicates job in which cluster")
-    in_which_cluster.info({"cluster": cluster})
-    const_output = generate_latest(in_which_cluster)
+    # Set up uname info
+    uname = os.uname()
+    fqdn = socket.getfqdn()
+    hostname = socket.gethostname()
+    domainname = fqdn[len(hostname) + 1 :] if fqdn != hostname else ""
+    uname_info = Info(
+        f"powerall_uname_info",
+        "Labeled system information as provided by the uname system call.",
+    )
+    uname_info.info(
+        {
+            "sysname": uname.sysname,
+            "release": uname.release,
+            "version": uname.version,
+            "machine": uname.machine,
+            "nodename": uname.nodename,
+            "domainname": domainname,
+        }
+    )
+
+    const_output = generate_latest(uname_info)
 
     cpu.setup()
     nvgpu.setup()

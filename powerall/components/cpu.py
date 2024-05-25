@@ -6,10 +6,11 @@ import re
 import threading
 import psutil
 
-
 cpus_list = re.compile(r"[0-9]+-[0-9]+")
 cpufreq_sysfsp = "/sys/devices/system/cpu/"
 cpufreq_policys = f"{cpufreq_sysfsp}/cpufreq/"
+# https://man7.org/linux/man-pages/man5/proc.5.html
+user_hz = 100.0
 
 
 class CPU:
@@ -24,10 +25,6 @@ class CPU:
             help=f"Enable {self._metric} Component",
         )
         return self
-
-    @property
-    def name(self) -> str:
-        return self._name
 
     def enabled(f):
         def wrap(*args, **kwargs):
@@ -65,12 +62,18 @@ class CPU:
             f"{self._metric}_freqs", "CPU Freqs in MHz", ["cpu", "mode"]
         )
         self._utils = Gauge(f"{self._metric}_utils", "CPU Utils in percentage", ["cpu"])
-        # governors
         self._scaling_govs = Info(
             f"{self._metric}_scaling_govs", "Current Scaling Governors", ["cpu"]
         )
+        self._cpu_seconds_total = Gauge(
+            f"{self._metric}_seconds_total",
+            "Seconds the CPUs spent in each mode.",
+            ["cpu", "mode"],
+        )
+        self._loadavg = Gauge(f"{self._metric}_loadavg", "load average", ["m"])
 
         # get CPUFreq scaling drivers, available scaling governors and available scaling frequencies
+        # use sysfs provided by CPUFreq module
         with open(f"{cpufreq_sysfsp}/cpu0/cpufreq/scaling_driver", "r") as f:
             self._scaling_driver = f.readline().strip()
         with open(
@@ -224,6 +227,17 @@ class CPU:
         output = bytes("", "utf-8")
         freqs = psutil.cpu_freq(percpu=True)
         utils = psutil.cpu_percent(percpu=True)
+        cputimes = {}
+        with open(f"/proc/stat", "r") as f:
+            for line in f.readlines():
+                line = line.strip().split(sep=" ", maxsplit=1)
+                cputimes[line[0]] = line[1].strip()
+        # use /proc/loadavg to get load average
+        with open("/proc/loadavg", "r") as f:
+            avgs = f.readline().strip().split(sep=" ")
+            self._loadavg.labels(m="1").set(avgs[0])
+            self._loadavg.labels(m="5").set(avgs[1])
+            self._loadavg.labels(m="15").set(avgs[2])
         for c in range(self._cpu_nums):
             self._freqs.labels(cpu=c, mode="current").set(
                 freqs[c][0] * self._cpu_freq_curr_div
@@ -234,10 +248,38 @@ class CPU:
             with open(f"{cpufreq_sysfsp}/cpu{c}/cpufreq/scaling_governor", "r") as f:
                 scaling_driver = f.readline().strip()
                 self._scaling_govs.labels(cpu=c).info({"governors": scaling_driver})
+            # parse cpu time spent on each mode by /proc/stat
+            cputime = cputimes[f"cpu{c}"].split(sep=" ")
+            self._cpu_seconds_total.labels(cpu=c, mode="user").set(
+                float(cputime[0]) / user_hz
+            )
+            self._cpu_seconds_total.labels(cpu=c, mode="nice").set(
+                float(cputime[1]) / user_hz
+            )
+            self._cpu_seconds_total.labels(cpu=c, mode="system").set(
+                float(cputime[2]) / user_hz
+            )
+            self._cpu_seconds_total.labels(cpu=c, mode="idle").set(
+                float(cputime[3]) / user_hz
+            )
+            self._cpu_seconds_total.labels(cpu=c, mode="iowait").set(
+                float(cputime[4]) / user_hz
+            )
+            self._cpu_seconds_total.labels(cpu=c, mode="irq").set(
+                float(cputime[5]) / user_hz
+            )
+            self._cpu_seconds_total.labels(cpu=c, mode="softirq").set(
+                float(cputime[6]) / user_hz
+            )
+            self._cpu_seconds_total.labels(cpu=c, mode="steal").set(
+                float(cputime[7]) / user_hz
+            )
         output += (
             generate_latest(self._freqs)
             + generate_latest(self._utils)
             + generate_latest(self._scaling_govs)
+            + generate_latest(self._cpu_seconds_total)
+            + generate_latest(self._loadavg)
         )
         return output
 
