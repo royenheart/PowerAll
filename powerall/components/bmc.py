@@ -2,13 +2,14 @@ from opts.logopt import *
 from opts.argsopt import *
 from prometheus_client import Gauge, Info, generate_latest
 from redfish import redfish_client
+from .component import Component
 import threading
 import re
 
 fans_list = re.compile(r"[0-9]+-[0-9]+")
 
 
-class BMC:
+class BMC(Component):
     def __init__(self) -> None:
         self._metric = "bmc"
 
@@ -45,6 +46,10 @@ class BMC:
             help=f"Set Manufacturer, determine some component's monitor/control methods. Will use Inspur-NF5280M6's config if not set, in this case some data will lose",
         )
         return self
+
+    @property
+    def name(self) -> str:
+        return self._metric
 
     def enabled(f):
         def wrap(*args, **kwargs):

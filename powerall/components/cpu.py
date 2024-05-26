@@ -1,6 +1,7 @@
 from opts.logopt import *
 from opts.argsopt import *
 from prometheus_client import Gauge, Info, generate_latest
+from .component import Component
 import os
 import re
 import threading
@@ -13,7 +14,7 @@ cpufreq_policys = f"{cpufreq_sysfsp}/cpufreq/"
 user_hz = 100.0
 
 
-class CPU:
+class CPU(Component):
     def __init__(self) -> None:
         self._metric = "cpu"
 
@@ -25,6 +26,10 @@ class CPU:
             help=f"Enable {self._metric} Component",
         )
         return self
+
+    @property
+    def name(self) -> str:
+        return self._metric
 
     def enabled(f):
         def wrap(*args, **kwargs):

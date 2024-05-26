@@ -2,13 +2,14 @@ from prometheus_client import Gauge, Info, generate_latest
 from pynvml import *
 from opts.logopt import *
 from opts.argsopt import *
+from .component import Component
 import re
 import threading
 
 nvgpus_list = re.compile(r"[0-9]+-[0-9]+")
 
 
-class NVGPU:
+class NVGPU(Component):
     def __init__(self) -> None:
         self._metric = "nvgpu"
 
@@ -27,6 +28,10 @@ class NVGPU:
             help=f"Set GPU Control Subsystem",
         )
         return self
+
+    @property
+    def name(self) -> str:
+        return self._metric
 
     def enabled(f):
         def wrap(*args, **kwargs):

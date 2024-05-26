@@ -1,9 +1,11 @@
 from opts.logopt import *
 from opts.argsopt import *
 from prometheus_client import Gauge, Info, generate_latest
+from .component import Component
+import threading
 
 
-class PROCESS:
+class PROCESS(Component):
     def __init__(self) -> None:
         self._metric = "process"
 
@@ -15,6 +17,10 @@ class PROCESS:
             help=f"Enable {self._metric} Component",
         )
         return self
+
+    @property
+    def name(self) -> str:
+        return self._metric
 
     def enabled(f):
         def wrap(*args, **kwargs):
@@ -45,7 +51,8 @@ class PROCESS:
         return wrap
 
     def setup(self):
-        pass
+        self._lock = threading.RLock()
+        self._enabled = get_arg(f"{self._metric}_enable")
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass

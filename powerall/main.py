@@ -4,12 +4,18 @@
 Deploy on single node
 """
 
+from typing import Dict
 from opts.argsopt import *
 from opts.logopt import *
 from flask import Response, Flask, request, jsonify
 from components.cpu import CPU
 from components.nvgpu import NVGPU
 from components.bmc import BMC
+from components.disk import DISK
+from components.hwmon import HWMON
+from components.mem import MEM
+from components.process import PROCESS
+from components.component import Component
 from prometheus_client import Info, generate_latest
 import os
 import socket
@@ -28,9 +34,17 @@ add_option(
 app = Flask(__name__)
 
 # Init components and execute __enter__ steps
-with CPU() as cpu, NVGPU() as nvgpu, BMC() as bmc:
+with CPU() as cpu, NVGPU() as nvgpu, BMC() as bmc, DISK() as disk, HWMON() as hwmon, MEM() as mem, PROCESS() as process:
     # Init components
-    components = {"cpu": cpu, "nvgpu": nvgpu, "bmc": bmc}
+    components: Dict[str, Component] = {
+        "cpu": cpu,
+        "nvgpu": nvgpu,
+        "bmc": bmc,
+        "disk": disk,
+        "hwmon": hwmon,
+        "mem": mem,
+        "process": process,
+    }
 
     # Parse args
     parse_args()
@@ -61,9 +75,8 @@ with CPU() as cpu, NVGPU() as nvgpu, BMC() as bmc:
 
     const_output = generate_latest(uname_info)
 
-    cpu.setup()
-    nvgpu.setup()
-    bmc.setup()
+    for c in components.values():
+        c.setup()
 
     @app.route("/metrics")
     def monitor():

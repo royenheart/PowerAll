@@ -1,9 +1,11 @@
 from opts.logopt import *
 from opts.argsopt import *
-from prometheus_client import Gauge, Info, generate_latest
+from prometheus_client import Gauge, generate_latest
+from .component import Component
+import threading
 
 
-class MEM:
+class MEM(Component):
     def __init__(self) -> None:
         self._metric = "mem"
 
@@ -15,6 +17,10 @@ class MEM:
             help=f"Enable {self._metric} Component",
         )
         return self
+
+    @property
+    def name(self) -> str:
+        return self._metric
 
     def enabled(f):
         def wrap(*args, **kwargs):
@@ -45,7 +51,11 @@ class MEM:
         return wrap
 
     def setup(self):
-        pass
+        self._lock = threading.RLock()
+        self._enabled = get_arg(f"{self._metric}_enable")
+        self._mem_bytes = Gauge(
+            f"{self._metric}_bytes", "Memory usage in bytes.", ["type"]
+        )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
@@ -56,7 +66,28 @@ class MEM:
     @enabled
     @locked
     def update(self) -> bytes:
-        pass
+        output = bytes("", "utf-8")
+        mems = {}
+        # use /proc/meminfo to get memory info
+        with open("/proc/meminfo", "r") as f:
+            for line in f.readlines():
+                line = line.strip().split(sep=":", maxsplit=1)
+                mems[line[0]] = (
+                    float(line[1].strip().split(sep=" ", maxsplit=1)[0]) * 1024
+                )
+        self._mem_bytes.labels(type="memtotal").set(mems["MemTotal"])
+        self._mem_bytes.labels(type="memfree").set(mems["MemFree"])
+        self._mem_bytes.labels(type="memavailable").set(mems["MemAvailable"])
+        self._mem_bytes.labels(type="buffers").set(mems["Buffers"])
+        self._mem_bytes.labels(type="cached").set(mems["Cached"])
+        self._mem_bytes.labels(type="slab").set(mems["Slab"])
+        self._mem_bytes.labels(type="pagetables").set(mems["PageTables"])
+        self._mem_bytes.labels(type="swapcached").set(mems["SwapCached"])
+        self._mem_bytes.labels(type="swaptotal").set(mems["SwapTotal"])
+        self._mem_bytes.labels(type="swapfree").set(mems["SwapFree"])
+        self._mem_bytes.labels(type="hardwarecorrupted").set(mems["HardwareCorrupted"])
+        output += generate_latest(self._mem_bytes)
+        return output
 
     @enabled
     @locked
